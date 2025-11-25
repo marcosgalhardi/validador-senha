@@ -5,10 +5,8 @@ Projetada com separação de responsabilidades, versionamento por cabeçalho e s
 
 ## Destaques / Pontos positivos
 
-- Minimal API (.NET 8) — inicialização rápida mais rápida que uma WebApi devido a ter menos recursos e etc.
+- Minimal API (.NET 9) — inicialização rápida mais rápida que uma WebApi devido a ter menos recursos e etc.
   isto visa permitir um menor coldStart.
-
-- Optei pela versão 8.0 por já conhecer e também pelo fato de ser uma versão LTS.
 
 - Optei pelo versionamento da API com Asp.Versioning usando cabeçalho `api-version` (permite múltiplas versões na mesma rota), 
   essa decisão foi tomada visto que para uso com API Gateway, pode fazer muito sentido.
