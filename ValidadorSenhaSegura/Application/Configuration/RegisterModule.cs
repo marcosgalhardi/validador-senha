@@ -21,17 +21,17 @@ namespace ValidadorSenhaSegura.Application.Configuration
 
         public static IServiceCollection AddApplication(this IServiceCollection services)
         {
-            services.AddSingleton<IPasswordValidator, PasswordValidatorV1>();
-            services.AddSingleton<IPasswordValidator, PasswordValidatorV2>();
-            services.AddSingleton<IUseCasePasswordValidate, UseCasePasswordValidate>();
+            services.AddScoped<IPasswordValidator, PasswordValidatorV1>();
+            services.AddScoped<IPasswordValidator, PasswordValidatorV2>();
+            services.AddScoped<IUseCasePasswordValidate, UseCasePasswordValidate>();
 
             return services;
         }
 
         public static IServiceCollection AddDomain(this IServiceCollection services)
         {
-            services.AddSingleton<IRulesetPasswordValidator, RulesetPasswordValidatorV1>();
-            services.AddSingleton<IRulesetPasswordValidator, RulesetPasswordValidatorV2>();
+            services.AddScoped<IRulesetPasswordValidator, RulesetPasswordValidatorV1>();
+            services.AddScoped<IRulesetPasswordValidator, RulesetPasswordValidatorV2>();
 
             return services;
         }

@@ -1,98 +1,166 @@
 ﻿# ValidadorSenhaSegura
 
-API minimalista para validação de senhas construída com .NET 9 (C# 13). 
-Projetada com separação de responsabilidades, versionamento por cabeçalho e suíte de testes unitários e testes integrados.
+API minimalista para validação de senhas construída com .NET 9 (C# 13). Projetada com separação de responsabilidades, versionamento por cabeçalho, arquitetura em camadas e suíte abrangente de testes unitários e integrados.
 
-## Destaques / Pontos positivos
+---
 
-- Minimal API (.NET 9) — inicialização rápida mais rápida que uma WebApi devido a ter menos recursos e etc.
-  isto visa permitir um menor coldStart.
+## 📋 Índice
 
-- Optei pelo versionamento da API com Asp.Versioning usando cabeçalho `api-version` (permite múltiplas versões na mesma rota), 
-  essa decisão foi tomada visto que para uso com API Gateway, pode fazer muito sentido.
+1. [Visão Geral](#visão-geral)
+2. [Arquitetura & Design](#arquitetura--design)
+3. [Princípios SOLID](#princípios-solid)
+4. [Testes](#testes)
+5. [Design de API](#design-de-api)
+6. [Como Executar](#como-executar)
+7. [Exemplos de Payloads](#exemplos-de-payloads-e-respostas-da-api)
 
-- Swagger/OpenAPI integrado e com separação de versões (geração de docs por versão).
+---
 
-- Arquitetura modular:
-  - Camadas separadas: Application, Domain, Infrastructure e Shared.
-  - Use-cases explícitos (IUseCasePasswordValidate / UseCasePasswordValidate).
-  - Validações implementadas como regras isoladas (Single Responsibility).
+## Visão Geral
 
-- Seleção de validador por estratégia:
-  - UseCasePasswordValidate escolhe a implementação IPasswordValidator baseada na versão em uma interface fluent e também o design pattern 'Strategy'.
+### Destaques Técnicos
 
-- Modelo de validação robusto:
-  - ValidationResult + Error permite retorno estruturado de erros.
-  - RulesetPasswordValidator usa Regex compilada para requisitos básicos (melhor desempenho do que se fosse interpretada).
+- **Minimal API (.NET 9)** — inicialização rápida, reduzindo cold start em ambientes serverless/containerizados
+- **Versionamento por Cabeçalho HTTP** — suporta múltiplas versões no mesmo endpoint via `api-version: 1.0` ou `2.0`, ideal para API Gateways
+- **Sem Controllers** — endpoints registrados diretamente como Minimal APIs, reduzindo overhead desnecessário
+- **Arquitetura em Camadas** — Application, Domain, Infrastructure e Shared, facilitando escalabilidade e manutenção
+- **Validação Robusta com Regras Isoladas** — cada regra é uma classe testável seguindo Single Responsibility Principle
+- **Middleware Global de Exceções** — centraliza tratamento de erros, retornando respostas padronizadas
+- **Swagger/OpenAPI Versionado** — documentação automática separada por versão da API
+- **Cobertura de Testes** — 13+ testes unitários e 2 testes integrados com xUnit + Moq
 
-- Middleware de tratamento global de exceções (centraliza respostas de erro, qualquer exception não tratada será capturada aqui).
+---
 
-- Endpoint de health-check (`/api/hc`) para liveness/readiness, eventual uso no gerenciamento da instância.
+## Arquitetura & Design
 
-- Endpoint de throw-exception (`/api/throw-exception`) para demonstrar que a aplicação não cai, 
-  mesmo sem um try/catch devido ao middleware criado para tratamento de erros.
+### Estrutura em Camadas
 
-- Boa cobertura de testes unitários com xUnit + Moq (regras e use-cases testados).
+- **Application**: Contém a lógica de aplicação e casos de uso.
+- **Domain**: Contém entidades, agregados, repositórios e regras de negócio.
+- **Infrastructure**: Implementações de repositórios, serviços externos e configurações.
+- **Shared**: Contém código compartilhado entre camadas, como utilitários e classes base.
 
-- Atualmente o Swagger é ativado apenas em ambiente de desenvolvimento. este poder ser alterado facilmente se assim desejado.
+### Seleção de Validador por Estratégia
 
-## Como rodar (rápido)
+- **UseCasePasswordValidate**: Escolhe a implementação de `IPasswordValidator` baseada na versão da API usando o padrão Strategy.
 
-- Build: use __Build Solution__ no Visual Studio ou `dotnet build` na raiz da solução.
-- Run: use __Start Debugging__ / __Run__ ou `dotnet run --project ValidadorSenhaSegura`.
-- Testes: use __Test Explorer__ ou `dotnet test` na raiz.
+### Modelo de Validação
 
-## Detalhes de implementação notáveis
-- A implementação de versionamento foi feito a efeito de demontração no intuito de apresentar 
-  tecnicamente como resolvi as situações que este contexto trouxe (Eu sei, devo evitar overengineer, 
-  mas nesse caso optei por ser uma avaliação).
+- **ValidationResult + Error**: Permite retorno estruturado de erros.
+- **RulesetPasswordValidator**: Usa Regex compilada para requisitos básicos, melhorando o desempenho.
 
-- Versão padrão da API está configurada como 2.0 e `AssumeDefaultVersionWhenUnspecified = true`.
+### Middleware de Tratamento Global de Exceções
 
-- Swagger é configurado para emitir um documento por versão usando `IApiVersionDescriptionProvider`.
+- **GlobalExceptionMiddleware**: Centraliza respostas de erro, capturando exceções não tratadas e retornando uma resposta padronizada.
 
-- Regras de validação são classes pequenas e testáveis (MinLengthRule, MustContainDigitRule, etc.).
+### Endpoints de Health-Check e Throw-Exception
 
-- RulesetPasswordValidator aplica: mínimo de caracteres, sem repetição de caracteres, sem espaços e requisitos básicos via regex.
+- **/api/hc**: Verifica a saúde da aplicação.
+- **/api/throw-exception**: Demonstra o tratamento de exceções pelo middleware.
 
-## Suíte de testes
+### Padrões de Design Utilizados
 
-Abaixo são listados os testes existentes no repositório divididos entre testes unitários e testes integrados.
+#### 1. **Strategy Pattern** — Múltiplas Versões do Validador
+Cada versão da API (`V1_`, `V2_`) possui sua implementação de validador:
 
-## Middlewares
+**Benefício:** Fácil adicionar novas versões sem modificar código existente (Open/Closed Principle).
 
-Abaixo uma tabela explicando o middleware global da aplicação e como ele é utilizado.
+#### 2. **Chain of Responsibility** — Pipeline de Regras
+Classe `Validator<T>` aplica múltiplas regras sequencialmente:
 
-| Middleware | Arquivo | Registrado em | Objetivo | Comportamento | Resposta HTTP | Logs / Observações |
-|---|---:|---|---|---|---:|---|
-| GlobalExceptionMiddleware | ValidadorSenhaSegura.Application.Middlewares.GlobalExceptionMiddleware.cs | Chamado em Program.cs via _app.UseGlobalExceptionHandler()_ (extensão em Application.Configuration.RegisterMiddlewares) | Capturar exceções não tratadas no pipeline e retornar uma resposta padronizada ao cliente | Envolve a chamada ao próximo middleware/endpoint com try/catch. Ao capturar uma Exception: grava um erro via ILogger e chama HandleExceptionAsync para serializar a resposta | Status 500 com Content-Type `application/problem+json`. Corpo: `ProblemDetails` com Title = "Erro interno no servidor", Detail = mensagem da exceção, Status = 500, Instance = caminho da requisição | Logs de erro são escritos pelo ILogger<GlobalExceptionMiddleware>. Útil para testes locais com a rota de exemplo `/api/throw-exception` que lança uma exceção propositalmente |
+**Benefício:** Adição de novas regras sem modificar a classe existente (Open/Closed Principle).
 
-### Testes unitários
+#### 3. **Dependency Injection** — Composição Root Centralizada
+Todas as dependências registradas em `RegisterModule.cs`:
 
-| Test class | Path | Objetivo |
-|---|---:|---|
-| MustContainUppercaseRuleTests | ValidadorSenhaSegura.Tests/Domain/Rules/MustContainUppercaseRuleTests.cs | Verifica regra "deve conter letra maiúscula". |
-| MustContainLowercaseRuleTests | ValidadorSenhaSegura.Tests/Domain/Rules/MustContainLowercaseRuleTests.cs | Verifica regra "deve conter letra minúscula". |
-| MustContainSpecialCharRuleTests | ValidadorSenhaSegura.Tests/Domain/Rules/MustContainSpecialCharRuleTests.cs | Verifica presença de pelo menos um caractere especial. |
-| MustContainDigitRuleTests | ValidadorSenhaSegura.Tests/Domain/Rules/MustContainDigitRuleTests.cs | Verifica presença de dígitos (0-9). |
-| MinLengthRuleTests | ValidadorSenhaSegura.Tests/Domain/Rules/MinLengthRuleTests.cs | Verifica requisito de comprimento mínimo. |
-| NoRepeatedCharsRuleTests | ValidadorSenhaSegura.Tests/Domain/Rules/NoRepeatedCharsRuleTests.cs | Verifica se não há caracteres repetidos consecutivos. |
-| WhitespaceNotAllowedTests | ValidadorSenhaSegura.Tests/Domain/Rules/WhitespaceNotAllowedTests.cs | Verifica que espaços em branco são proibidos. |
-| NullNotAllowedTests | ValidadorSenhaSegura.Tests/Domain/Rules/NullNotAllowedTests.cs | Verifica comportamento quando valor nulo é recebido. |
-| RulesetPasswordValidatorV1Tests | ValidadorSenhaSegura.Tests/Domain/Validators/RulesetPasswordValidatorV1Tests.cs | Testa o conjunto de regras da versão 1 do validador. |
-| RulesetPasswordValidatorV2Tests | ValidadorSenhaSegura.Tests/Domain/Validators/RulesetPasswordValidatorV2Tests.cs | Testa o conjunto de regras da versão 2 do validador. |
-| UseCasePasswordValidateTests | ValidadorSenhaSegura.Tests/Application/UseCases/UseCasePasswordValidateTests.cs | Testa seleção de validador por versão e comportamento do use-case. |
-| ValidatorPipelineTests | ValidadorSenhaSegura.Tests/Shared/ValidatorPipelineTests.cs | Testa pipeline/execução encadeada das regras. |
-| PasswordTests | ValidadorSenhaSegura.Tests/Domain/ValueObject/PasswordTests.cs | Testa ValueObject Password (construção, igualdade, etc.). |
+**Benefício:** Facilita testes (injeção de mocks), desacoplamento e flexibilidade.
 
-### Testes integrados
+#### 4. **Fluent Interface** — API Fluida e Expressiva
 
-| Test class | Path | Objetivo |
-|---|---:|---|
-| ValidatePasswordEndpointV1Tests | ValidadorSenhaSegura.Tests/Endpoints/ValidatePasswordEndpointV1Tests.cs | Integração do endpoint `/api/validate-password` usando `api-version: 1.0` (WebApplicationFactory). |
-| ValidatePasswordEndpointV2Tests | ValidadorSenhaSegura.Tests/Endpoints/ValidatePasswordEndpointV2Tests.cs | Integração do endpoint `/api/validate-password` usando `api-version: 2.0` (WebApplicationFactory). |
+**Benefício:** Interface intuitiva, reduz verbosidade do código.
 
--- fim das tabelas --
+#### 5. **Value Object Pattern** — Classe Password
+Encapsula lógica de construção e validação de senhas (DDD).
+
+#### 6. **Tratamento Global de Erros** — Middleware `GlobalExceptionMiddleware` captura exceções não tratadas:
+   - Status 500 com `application/problem+json` (RFC 7807)
+   - Logs centralizados via `ILogger<GlobalExceptionMiddleware>`
+
+#### 7. **Swagger Automático** — Documentação gerada por versão
+
+---
+
+## Princípios SOLID
+
+| Princípio | Implementação | Benefício |
+|-----------|---------------|-----------|
+| **S**ingle Responsibility | Cada regra (`MinLengthRule`, `MustContainDigitRule`, etc.) valida **um** aspecto | Fácil manutenção, testes isolados |
+| **O**pen/Closed | Adicione regras sem modificar `Validator<T>`; adicione validadores sem tocar em `UseCasePasswordValidate` | Extensível a novos requisitos |
+| **L**iskov Substitution | Todas as regras implementam `IValidationRule<T>` com mesmo contrato | Polimorfismo seguro |
+| **I**nterface Segregation | Interfaces pequenas e focadas: `IPasswordValidator`, `IValidationRule<T>`, `IUseCasePasswordValidate` | Desacoplamento, sem herança desnecessária |
+| **D**ependency Inversion | Depende de abstrações (`IPasswordValidator`), não de implementações concretas | Inversão de controle, facilita testes com mocks |
+
+### Exemplo de Extensibilidade (Novo Validador v3)
+
+---
+
+## Testes
+
+### Estratégia de Testes
+
+A suíte combina **testes unitários** (domínio/lógica isolada) com **testes integrados** (fluxo end-to-end):
+
+#### Cobertura por Camada
+
+| Camada | Estratégia | Ferramentas |
+|--------|-----------|-------------|
+| **Domain** | Testes unitários isolados (sem DI) | xUnit, Theory [InlineData] |
+| **Application** | Testes unitários com mocks | xUnit, Moq |
+| **Endpoints** | Testes integrados (WebApplicationFactory) | xUnit, Microsoft.AspNetCore.Mvc.Testing |
+
+### Testes Unitários
+
+**Objetivo:** Validar regras de negócio isoladamente, sem contexto HTTP.
+
+| Classe de Teste | Arquivo | Cenários |
+|---|---|---|
+| `MustContainUppercaseRuleTests` | `Domain/Rules/MustContainUppercaseRuleTests.cs` | ✓ Contém maiúscula / ✗ Não contém |
+| `MustContainLowercaseRuleTests` | `Domain/Rules/MustContainLowercaseRuleTests.cs` | ✓ Contém minúscula / ✗ Não contém |
+| `MustContainDigitRuleTests` | `Domain/Rules/MustContainDigitRuleTests.cs` | ✓ Contém dígito / ✗ Não contém |
+| `MustContainSpecialCharRuleTests` | `Domain/Rules/MustContainSpecialCharRuleTests.cs` | ✓ Contém especial / ✗ Não contém |
+| `MinLengthRuleTests` | `Domain/Rules/MinLengthRuleTests.cs` | ✓ Mín. atendido / ✗ Mín. não atendido |
+| `NoRepeatedCharsRuleTests` | `Domain/Rules/NoRepeatedCharsRuleTests.cs` | ✓ Sem repetição / ✗ Com repetição |
+| `WhitespaceNotAllowedTests` | `Domain/Rules/WhitespaceNotAllowedTests.cs` | ✓ Sem espaço / ✗ Com espaço |
+| `NullNotAllowedTests` | `Domain/Rules/NullNotAllowedTests.cs` | ✓ Válido / ✗ Nulo |
+| `RulesetPasswordValidatorV1Tests` | `Domain/Validators/RulesetPasswordValidatorV1Tests.cs` | Orquestração de regras V1 |
+| `RulesetPasswordValidatorV2Tests` | `Domain/Validators/RulesetPasswordValidatorV2Tests.cs` | Orquestração de regras V2 |
+| `ValidatorPipelineTests` | `Shared/ValidatorPipelineTests.cs` | Chain of Responsibility |
+| `PasswordTests` | `Domain/ValueObject/PasswordTests.cs` | Value Object: igualdade, construção |
+| `UseCasePasswordValidateTests` | `Application/UseCases/UseCasePasswordValidateTests.cs` | Strategy, seleção correta de validador |
+
+**Exemplo de Teste (AAA Pattern):**
+
+### Testes Integrados
+
+**Objetivo:** Validar fluxo HTTP completo: request → middleware → endpoint → response.
+
+| Classe de Teste | Arquivo | Cobertura |
+|---|---|---|
+| `ValidatePasswordEndpointV1Tests` | `Endpoints/ValidatePasswordEndpointV1Tests.cs` | POST /api/validate-password com api-version: 1.0 |
+| `ValidatePasswordEndpointV2Tests` | `Endpoints/ValidatePasswordEndpointV2Tests.cs` | POST /api/validate-password com api-version: 2.0 |
+
+**Exemplo de Teste Integrado:**
+
+---
+
+## Design de API
+
+### Princípios de Design
+
+1. **Versionamento via Cabeçalho** — Mantém URLs limpas, ideal para Gateway
+2. **Resposta Padronizada** — Sempre segue o mesmo formato:
+
+---
 
 ## Exemplos de Payloads e Respostas da API
 
@@ -104,8 +172,9 @@ Observações:
   - GET  /api/hc
   - GET  /api/throw-exception (exemplo de erro interno)
 
-  
-1) Validar senha — requisição (exemplo curl, versão 1.0)
+### 1. Validar Senha — Versão 1.0 (Sucesso)
+
+**Request:**
 curl:
 curl -X POST "https://localhost:7218/api/validate-password" \
   -H "Content-Type: application/json" \
@@ -117,14 +186,14 @@ Request body (JSON)
   "password": "Senha123!"
 }
 
-Resposta de sucesso (HTTP 200)
+**Response (HTTP 200):**
 {
   "apiVersion": "1",
   "data": "A senha informada é válida",
   "errors": []
 }
 
-Resposta de falha (HTTP 400) — exemplo quando não atende às regras
+**Response (HTTP 400):**
 {
   "apiVersion": "1",
   "data": "A senha informada é inválida, pois não atende aos critérios",
@@ -134,14 +203,16 @@ Resposta de falha (HTTP 400) — exemplo quando não atende às regras
   ]
 }
 
+### 2. Validar Senha — Versão 2.0 (Falha)
 
-2) Validar senha — usando versão 2.0 (pode ter regras diferentes conforme implementação)
+**Request:**
 curl:
 curl -X POST "https://localhost:7218/api/validate-password" \
   -H "Content-Type: application/json" \
   -H "api-version: 2.0" \
   -d '{ "password": "abc" }'
 
+**Response:**
 Exemplo de resposta (HTTP 400)
 {
   "apiVersion": "2",
@@ -153,11 +224,13 @@ Exemplo de resposta (HTTP 400)
   ]
 }
 
+### 3. Health Check
 
-3) Health check (GET /api/hc)
+**Request:**
 curl:
 curl -X GET "https://localhost:7218/api/hc" -H "api-version: 2.0"
 
+**Response:**
 Resposta (HTTP 200)
 {
   "liveness": true,
@@ -165,10 +238,13 @@ Resposta (HTTP 200)
   "errors": []
 }
 
-4) Exemplo de erro interno tratado pelo middleware (GET /api/throw-exception)
+### 4. Erro Não Tratado (Middleware)
+
+**Request:**
 curl:
 curl -X GET "https://localhost:7218/api/throw-exception" -H "api-version: 1.0"
 
+**Response:**
 Resposta de erro (HTTP 500, content-type: application/problem+json)
 {
   "title": "Erro interno no servidor",
@@ -176,3 +252,77 @@ Resposta de erro (HTTP 500, content-type: application/problem+json)
   "status": 500,
   "instance": "/api/throw-exception"
 }
+
+**Response (HTTP 500, RFC 7807):**
+
+---
+
+## Como Executar
+
+### Pré-requisitos
+
+- .NET 9 SDK
+- Visual Studio 2022 ou VS Code
+
+### Build
+
+- **Build**: use __Build Solution__ no Visual Studio ou `dotnet build` na raiz da solução.
+- **Run**: use __Start Debugging__ / __Run__ ou `dotnet run --project ValidadorSenhaSegura`.
+- **Testes**: use __Test Explorer__ ou `dotnet test` na raiz.
+
+### Detalhes de Implementação Notáveis
+
+- **Versionamento**: Implementado para demonstrar a resolução técnica de versionamento por cabeçalho.
+- **Versão Padrão**: Configurada como 2.0 com `AssumeDefaultVersionWhenUnspecified = true`.
+- **Swagger**: Configurado para emitir um documento por versão usando `IApiVersionDescriptionProvider`.
+- **Regras de Validação**: Classes pequenas e testáveis (MinLengthRule, MustContainDigitRule, etc.).
+- **RulesetPasswordValidator**: Aplica mínimo de caracteres, sem repetição de caracteres, sem espaços e requisitos básicos via regex.
+
+---
+
+### Execução
+
+A API estará disponível em `https://localhost:7218`.
+
+---
+
+## Middleware Global
+
+| Middleware | Objetivo | Comportamento | Response |
+|---|---|---|---|
+| **GlobalExceptionMiddleware** | Capturar exceções não tratadas | Envolve chamada ao próximo middleware com try/catch; serializa erro como `ProblemDetails` | HTTP 500 com `application/problem+json` |
+
+---
+
+## Notas de Design
+
+### Por que Minimal API?
+- Reduz overhead de controllers
+- Melhor cold start em serverless
+- Ideal para microserviços pequenos
+
+### Por que Versionamento por Cabeçalho?
+- URL fica limpa
+- Compatível com API Gateways
+- Fácil de adicionar novas versões
+
+### Por que Regras Isoladas?
+- Cada regra é testável isoladamente
+- Fácil reusar regras em diferentes validadores
+- Novo requisito = nova regra, sem modificar código existente
+
+### Por que Value Objects?
+- Encapsula lógica de construção
+- Imutabilidade padrão (record)
+- Facilita Domain-Driven Design
+
+---
+
+## Melhorias Futuras
+
+- [ ] Integração com BD para log de validações
+- [ ] Rate limiting por IP
+- [ ] Autenticação/Autorização
+- [ ] Métricas (Prometheus)
+- [ ] Testes de performance/carga
+
