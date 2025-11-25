@@ -7,12 +7,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApiVersioning(options =>
 {
-    // Define a vers„o padr„o da API.
+    // Define a vers√£o padr√£o da API.
     options.DefaultApiVersion = new ApiVersion(2, 0);
 
     options.AssumeDefaultVersionWhenUnspecified = true;
 
-    // Envia cabeÁalhos mostrando versıes suportadas
+    // Envia cabe√ßalhos mostrando vers√µes suportadas
     options.ReportApiVersions = true;
 
     // Somente via Header
@@ -22,7 +22,7 @@ builder.Services.AddApiVersioning(options =>
 {
     options.GroupNameFormat = "'v'VVV";
 
-    // n„o usa URL
+    // n√£o usa URL
     options.SubstituteApiVersionInUrl = false;
 });
 
@@ -30,8 +30,6 @@ builder.Services.AddInfrastructure();
 builder.Services.AddDomain();
 builder.Services.AddApplication();
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
 // Register Swagger generation and operation filter (do NOT build a service provider here)
@@ -47,7 +45,7 @@ builder.Services.AddTransient<
 
 var app = builder.Build();
 
-app.UseGlobalExceptionHandler(); // Middleware criado para tratativa global de exceÁıes.
+app.UseGlobalExceptionHandler(); // Middleware criado para tratativa global de exce√ß√µes.
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -57,8 +55,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// --- CRIA ApiVersionSet e PASSA PARA RegisterRoutes --- 
-// Usa a extens„o definida em Application.Configuration.RegisterApiVersions
 var versionSet = app.GetInstanceApiVersionSet();
 app.AddRoutes(versionSet);
 
