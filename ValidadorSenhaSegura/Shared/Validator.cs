@@ -1,5 +1,4 @@
-﻿using System.Data;
-using ValidadorSenhaSegura.Shared.Interfaces;
+﻿using ValidadorSenhaSegura.Shared.Interfaces;
 
 namespace ValidadorSenhaSegura.Shared
 {
@@ -25,9 +24,9 @@ namespace ValidadorSenhaSegura.Shared
                 if (!isValid)
                 {
                     errors.Add(Error.Create(rule.ErrorMessage, rule.ErrorCode));
-                    
+
                     if (!rule.ContinueIfErrorOccurs)
-                        return ValidationResult.Failure(errors);
+                        break;
                 }
             }
 

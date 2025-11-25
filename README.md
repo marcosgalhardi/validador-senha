@@ -21,7 +21,7 @@ API minimalista para validação de senhas construída com .NET 9 (C# 13). Proje
 ### Destaques Técnicos
 
 - **Minimal API (.NET 9)** — inicialização rápida, reduzindo cold start em ambientes serverless/containerizados
-- **Versionamento por Cabeçalho HTTP** — suporta múltiplas versões no mesmo endpoint via `api-version: 1.0` ou `2.0`, ideal para API Gateways
+- **Versionamento por Cabeçalho HTTP** — suporta múltiplas versões no mesmo endpoint via `api-version: 1.0` ou `api-version: 2.0`, ideal para API Gateways
 - **Sem Controllers** — endpoints registrados diretamente como Minimal APIs, reduzindo overhead desnecessário
 - **Arquitetura em Camadas** — Application, Domain, Infrastructure e Shared, facilitando escalabilidade e manutenção
 - **Validação Robusta com Regras Isoladas** — cada regra é uma classe testável seguindo Single Responsibility Principle
@@ -47,7 +47,6 @@ API minimalista para validação de senhas construída com .NET 9 (C# 13). Proje
 ### Modelo de Validação
 
 - **ValidationResult + Error**: Permite retorno estruturado de erros.
-- **RulesetPasswordValidator**: Usa Regex compilada para requisitos básicos, melhorando o desempenho.
 
 ### Middleware de Tratamento Global de Exceções
 
@@ -61,7 +60,7 @@ API minimalista para validação de senhas construída com .NET 9 (C# 13). Proje
 ### Padrões de Design Utilizados
 
 #### 1. **Strategy Pattern** — Múltiplas Versões do Validador
-Cada versão da API (`V1_`, `V2_`) possui sua implementação de validador:
+Cada versão da API (`V1_`, `V2_`) possui sua implementação de validador.
 
 **Benefício:** Fácil adicionar novas versões sem modificar código existente (Open/Closed Principle).
 
@@ -80,13 +79,123 @@ Todas as dependências registradas em `RegisterModule.cs`:
 **Benefício:** Interface intuitiva, reduz verbosidade do código.
 
 #### 5. **Value Object Pattern** — Classe Password
-Encapsula lógica de construção e validação de senhas (DDD).
+    ✔ Encapsula lógica de construção e validação de senhas (DDD).
+        - Ex: 'Domain/ValueObject/Password.cs'
 
 #### 6. **Tratamento Global de Erros** — Middleware `GlobalExceptionMiddleware` captura exceções não tratadas:
-   - Status 500 com `application/problem+json` (RFC 7807)
-   - Logs centralizados via `ILogger<GlobalExceptionMiddleware>`
+    ✔ Status 500 com `application/problem+json` (RFC 7807)
+    ✔ Logs centralizados via `ILogger<GlobalExceptionMiddleware>`
 
-#### 7. **Swagger Automático** — Documentação gerada por versão
+#### 7. Design Patterns
+
+    - Specification Pattern
+        ✔ Cada uma das suas regras (IValidationRule<T>) é uma Specification.
+            - Por quê, permite combinar regras facilmente e manter o código limpo.
+
+    - Composite Pattern
+        ✔ Validator<T> funciona como um Ruleset que compõe várias especificações.
+            - Você monta uma coleção de regras.
+            - Executa todas.
+            - Coleta os erros.
+
+    -  Chain of Responsibility (implícito)
+        ✔ O Validator<T> processa cada regra em sequência.
+            - Cada regra pode interromper a cadeia.
+            - A pipeline termina dependendo de uma decisão própria da regra.
+            - A execução flui através de uma sequência de handlers (regras).
+            - Processa uma lista sequencial de handlers (regras).
+            - Cada handler decide se:
+                - Passa a requisição adiante, ou
+                - Interrompe o fluxo.
+            - O “encadeamento” não é explícito via propriedades Next, mas sim implícito dentro de uma lista iterada.
+
+    - Value Object
+        ✔ A classe Password é um Value Object, característico (DDD).
+
+            Evidências claras:
+
+                ✔ Tipo imutável (record + campo readonly)
+                ✔ Só é criado através de um factory method (Create())
+                ✔ Igualdade por valor (record)
+                ✔ Encapsula validação dentro do processo de criação
+                ✔ Representa um conceito do domínio: senha válida
+
+        Declaração típica de Value Object
+
+            🧩 Explicação do fluxo
+
+                1. Password.Create() é chamado → Factory Method -> Password.Create(string, IPasswordValidator)
+
+                2. O método chama a Strategy: → validator.Validate(password)
+
+                3. A Password só é criada se a estratégia retornar SUCCESS
+
+                    Senão, retorna: Result.Failure<Password>(errors)
+
+                4. A classe Password é um Value Object
+
+                    Imutável, criado apenas após a validação.
+        
+        Por que é um Value Object?
+
+            - Não tem identidade própria (duas senhas iguais → mesmo valor).
+            - É imutável.
+            - Garantias invariantes (só existe se for válida).
+            - Encapsula regras do domínio.
+    
+    - Factory Method
+
+        ✔ O método estático Create(...) é um Factory Method, que:
+
+            - Controla como o objeto é criado
+            - Garante invariantes antes do objeto existir
+            - Retorna um wrapper (Result<Password>) ao invés de exceção
+        
+            Evidências
+
+                public static Result<Password> Create(string password, IPasswordValidator passwordValidator)
+
+                Isso é muito usado em:
+
+                    - DDD
+
+                    - Clean Architecture
+
+                    - Por que não usar new Password() diretamente?
+
+                        Porque o domínio exige:
+
+                            ❌ Não pode existir uma senha inválida.
+                            ✔ A única forma de criar = Create() → com validação acoplada.
+
+
+    - Strategy Pattern — via IPasswordValidator
+
+        A dependência IPasswordValidator é uma Strategy, pois o algoritmo de validação NÃO está na classe Password, mas é injetado.
+
+        Result<Password> Create(string password, passwordValidator)
+
+        Isso significa:
+
+            o algoritmo de validação é intercambiável
+
+            você pode ter múltiplas estratégias de validação
+
+                Exemplos:
+
+                    PasswordValidatorV1
+                    PasswordValidatorV2
+                    "senha fraca" vs "senha forte"
+                    regras configuráveis por JSON
+
+        Evidências do Strategy Pattern:
+
+            ✔ interface com método comum (Validate)
+            ✔ comportamento externo injetado
+            ✔ fixar invariantes sem fixar a implementação da regra
+
+
+#### 10. **Swagger Automático** — Documentação gerada por versão
 
 ---
 
@@ -198,7 +307,7 @@ Request body (JSON)
   "apiVersion": "1",
   "data": "A senha informada é inválida, pois não atende aos critérios",
   "errors": [
-    { "code": 1, "message": "A senha deve ter pelo menos 8 caracteres" },
+    { "code": 1, "message": "A senha deve ter pelo menos 9 caracteres" },
     { "code": 4, "message": "Deve conter ao menos 1 caractere especial" }
   ]
 }
@@ -218,7 +327,7 @@ Exemplo de resposta (HTTP 400)
   "apiVersion": "2",
   "data": "A senha informada é inválida, pois não atende aos critérios",
   "errors": [
-    { "code": 1, "message": "A senha deve ter pelo menos 8 caracteres" },
+    { "code": 1, "message": "A senha deve ter pelo menos 9 caracteres" },
     { "code": 2, "message": "Não são permitidos caracteres repetidos consecutivos" },
     { "code": 3, "message": "Espaços em branco não são permitidos" }
   ]
@@ -316,13 +425,61 @@ A API estará disponível em `https://localhost:7218`.
 - Imutabilidade padrão (record)
 - Facilita Domain-Driven Design
 
----
+### Por que Chain of Responsability (parcial)?
+    
+    Segue abaixo uma análise das vantagens e desvantagens da implementação atual do padrão Chain of Responsibility (CoR parcial) na validação de senhas.
+    
+    👍 Vantagens
 
-## Melhorias Futuras
+        ✔ mais simples de implementar
+        ✔ regras independentes
+        ✔ fácil adicionar/remover regras (AddRule)
+        ✔ fácil criar lista dinâmica de regras
+        ✔ funciona muito bem com DI (injeção de múltiplos handlers)
+        ✔ pipeline centralizado no Validator
+        ✔ permite acumular múltiplos erros
+        ✔ permitir "parada precoce" via ContinueIfErrorOccurs sem complicar
 
-- [ ] Integração com BD para log de validações
-- [ ] Rate limiting por IP
-- [ ] Autenticação/Autorização
-- [ ] Métricas (Prometheus)
-- [ ] Testes de performance/carga
+    👎 Desvantagens
 
+        ❌ a lógica de fluxo não fica nas regras — fica no Validator
+        ❌ não é um Chain of Responsibility “puro”
+        ❌ regras não sabem qual é a próxima na cadeia
+        ❌ não há composição hierárquica de regras (ex: OR, AND, XOR de regras)
+
+    
+    Segue abaixo uma análise das vantagens e desvantagens da implementação atual do padrão Chain of Responsibility (CoR clássico) na validação de senhas, modelo CoR Clássico (cada rule tem um Next)
+    
+    👍 Vantagens
+
+        ✔ implementação 100% alinhada ao padrão CoR clássico
+        ✔ cada regra controla seu próprio fluxo
+        ✔ flexível para montar árvores de regras (regra X chama regra Y)
+        ✔ as regras conhecem a sequência e têm controle total
+        ✔ muito útil quando você precisa de fluxos dinâmicos complexos
+
+    👎 Desvantagens
+
+        ❌ mais código
+        ❌ mais difícil adicionar/remover regras dinamicamente
+        ❌ regras ficam acopladas ao fluxo (chamam explícitamente o próximo)
+        ❌ mais difícil acumular todas as mensagens de erro (CoR é naturalmente "short circuit")
+        ❌ um CoR bem feito normalmente retorna um único erro — não vários
+
+    Escolha do Modelo Atual:
+
+        Motivos:
+
+            - Suporta múltiplos erros
+            - Fácil adicionar regras
+            - Fácil configurar ruleset por arquivo (JSON, YAML etc.)
+            - Regras são super isoladas e plugáveis
+            - O fluxo é simples
+            - O CoR clássico só é melhor em casos de:
+            - Fluxo condicional complexo
+            - Pipelines ramificadas
+            - Tarefas que devem ser passadas de handler para handler
+            - Não validação de regras paralelas
+            - Para "validação de senha", usar Chain of Responsibility clássico complica sem oferecer ganho efetivo.
+
+--------
