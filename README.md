@@ -165,10 +165,3 @@ Resposta de erro (HTTP 500, content-type: application/problem+json)
   "status": 500,
   "instance": "/api/throw-exception"
 }
-
-Notas finais rápidas:
-- Os campos retornados seguem os records:
-  - PasswordValidateResponse: { apiVersion, data, errors[] }
-  - HealthCheckResponse: { liveness, readiness, errors[] }
-  - Error: { code, message }
-- Ajuste os exemplos conforme regras específicas que seu ruleset retorna (códigos de erro do enum RulesetValidationErrorCode estão disponíveis no código).
