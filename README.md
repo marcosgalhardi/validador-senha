@@ -1,152 +1,373 @@
-﻿# Secure Password Validator (SPV)
+﻿# ValidadorSenhaSegura
 
-## 📌 Visão Geral
-O **Secure Password Validator (SPV)** é um mecanismo extensível de validação de senhas utilizando padrões avançados de projeto, como **Chain of Responsibility**, **Strategy**, **Value Object** e **Ruleset Composition**.  
-Com suporte a múltiplas versões (V1, V2, …), é ideal para APIs versionadas, cenários multi-clientes e validações plugáveis via configuração.
+API minimalista para validação de senhas robusta e escalável, construída com .NET 9 e C# 13. Projetada com separação de responsabilidades, versionamento por cabeçalho (api-version), arquitetura em camadas, tratamento centralizado de erros (RFC 7807) e uma suíte abrangente de testes.
 
 ---
 
-## 🚀 Funcionalidades
-- Validação encadeada com opção de parar no erro ou continuar (`ContinueIfErrorOccurs`)
-- Value Object imutável para representação da senha
-- Regras plugáveis via DI
-- Result pattern para resultados ricos
-- Suporte a múltiplas versões de validador
-- Extensível para validação baseada em JSON/YAML
+## Índice
+
+- [Visão geral](#visão-geral)
+- [Destaques técnicos](#destaques-técnicos)
+- [Pilares de boas práticas](#pilares-de-boas-práticas)
+- [Como executar](#como-executar)
+- [Arquitetura e organização](#arquitetura-e-organização)
+- [Design Patterns — Racional, benefícios e trade-offs](#design-patterns---racional-benefícios-e-trade-offs)
+- [Fluxo de validação](#fluxo-de-validação)
+- [API — Endpoints, versões e exemplos](#api---endpoints-versões-e-exemplos)
+- [Regras de validação e Value Object Password](#regras-de-validação-e-value-object-password)
+- [Testes: estratégia e cobertura](#testes-estratégia-e-cobertura)
+- [Observabilidade, segurança e performance](#observabilidade-segurança-e-performance)
+- [Como estender (regras e versões)](#como-estender-regras-e-versões)
+- [CI/CD, PR e checklist de qualidade](#cicd-pr-e-checklist-de-qualidade)
+- [Arquivos e referências principais](#arquivos-e-referências-principais)
+- [Contribuição](#contribuição)
+- [Notas finais](#notas-finais)
 
 ---
 
-## 🧬 Arquitetura — C4 Model
+## Visão geral
 
-### **C4 — Nível 1: Contexto**
+ValidadorSenhaSegura é um serviço que valida senhas baseadas em regras configuráveis. O projeto demonstra práticas de engenharia de software (DDD, SOLID, DRY, YAGNI), arquitetura em camadas, design patterns e foco em testabilidade e observabilidade.
+
+Objetivos principais:
+- Garantir invariantes do domínio (não existe Password inválido).
+- Informar usuário com lista de erros (múltiplos problemas) e mensagens claras.
+- Evolver via versionamento sem quebrar consumidores (backwards-compatible).
+- Ser testável, extensível e preparado para produção.
+
+---
+
+## Destaques técnicos
+
+- Minimal API (.NET 9) para menor overhead e boot mais rápido;
+- Versionamento por header (api-version) — URLs limpas e gateway-friendly;
+- Sem Controllers (Minimal API), endpoints declarados via rotas;
+- Arquitetura em camadas (Application, Domain, Infrastructure, Shared);
+- Regras isoladas (Specification Pattern) e Validator pipeline (Composite / CoR parcial);
+- Value Object Password para garantia de invariantes;
+- Middleware global de exceções com RFC 7807 (Problem Details);
+- Swagger (OpenAPI) documentado por versão;
+- Suíte de testes: Unitários + Testes de Integração (xUnit, Moq, WebApplicationFactory).
+
+---
+
+## Pilares de boas práticas
+
+- Domain Driven Design (DDD): modelagem de domínio com Value Objects e regras expressas.
+- SOLID: classes pequenas, responsabilidade única, aberturas para extensão (Open/Closed), dependências invertidas via DI.
+- DRY: evitar duplicação de regras, reuso via specifications e rulesets.
+- YAGNI: não implementar funcionalidades sem necessidade — arquitetura preparada para extensão.
+- Testabilidade: regras testáveis isoladamente, orquestração testada, endpoints via testes integrados.
+- Segurança & Privacidade: nunca exportar ou logar senhas; HTTPS em produção; recomendações de rate limiting no gateway.
+- Observability: health checks, logging e tratamento consistente de erros.
+
+---
+
+## Como executar
+
+Pré-requisitos
+- .NET 9 SDK
+- Visual Studio 2022 ou VS Code
+
+CLI
+```bash
+git clone https://github.com/seu-usuario/ValidadorSenhaSegura.git
+cd ValidadorSenhaSegura
+dotnet build
+dotnet run --project ValidadorSenhaSegura
+# Swagger: https://localhost:7218/swagger
 ```
-System_Boundary("SPV", "Secure Password Validator") {
-    Person(User, "Cliente da API", "Sistema que envia senhas para validação")
-    System(API, "Password Validation API", "Expõe endpoints de validação")
-    System(SPV, "Secure Password Validator Core", "Executa regras e retorna erros")
+
+Executando testes
+```bash
+dotnet test
+```
+
+Executando com Docker (exemplo)
+```bash
+docker build -t validadorsenha .
+docker run -p 7218:7218 validadorsenha
+```
+
+---
+
+## Arquitetura e organização
+
+Estrutura de pastas (resumida)
+- Application: casos de uso, DTOs, validators, interações com Domain;
+- Domain: regras, rulesets, value objects (Password), validators e interfaces;
+- Infrastructure: integrações externas, configurações e infra;
+- Shared: Result, ValidationResult, Error, Validator<T>, abstrações;
+- Tests: unitários e integração.
+
+Configuração central:
+- Program.cs: DI, API versioning, middlewares e Swagger;
+- Application/Configuration/RegisterModule.cs: composição de dependências;
+- Application/Configuration/RegisterRoutes.cs: registro dos endpoints;
+- Application/Configuration/RegisterMiddlewares.cs: pipeline de middlewares;
+- Application/Middlewares/GlobalExceptionMiddleware.cs: RFC 7807.
+
+---
+
+## Design Patterns — Racional, benefícios e trade-offs
+
+Abaixo, tabelas que auxiliam a entender porque cada padrão foi escolhido, seus benefícios e possíveis trade-offs.
+
+### Tabela 1 — Padrões principais
+
+| Padrão | Uso | Benefícios | Trade-offs | Alternativa |
+|---|---|---|---|---|
+| Strategy | Seleção de PasswordValidator (V1/V2) | Troca de algoritmo sem alterar orquestração; facilita versões | Aumenta nº de classes | Single Validator com flags (composición condicional) |
+| Composite + Validator Pipeline | Validator<T> executando IValidationRule<T> | Acumula múltiplos erros; regras isoladas; alta extensibilidade | Ordem pode importar; gerir Estado em regras mais complexas | CoR clássico (Next) |
+| Specification | IValidationRule<T> | Regras como objetos reusáveis e testáveis | Mais classes pequenas | Regras monolíticas |
+| Value Object | Password VO | Invariantes garantidos; imutabilidade; igualdade por valor | Requer factory e Result wrapper | Strings nativas (sem invariantes) |
+| Dependency Injection | RegisterModule | Testes e substituição de implementações | Sobredesgin se mal usado | Construção manual / instanciamento direto |
+
+### Tabela 2 — Comparativo com alternativas e trade-offs práticos
+
+| Decisão | Benefício prático | Perigo se não adotado |
+|---|---|---|
+| Versionamento por header | URLs limpas; compatível com gateways | Breaking changes em URLs; fragmentação de clients |
+| Accumular erros (Composite) | UX: mensagens completas e acionáveis | Se não for tratado, volume de erros pode poluir logs |
+| Value Object Password | Garante domínio válido em runtime | Strings expostas causam invariantes quebradas |
+| GlobalExceptionMiddleware | Consistência de respostas e logs | Pode silenciar exceções se mal configurado |
+
+---
+
+## Fluxo de validação
+
+1. O client faz POST /api/validate-password com header `api-version`.
+2. UseCasePasswordValidate determina qual `IPasswordValidator` usar (Strategy).
+3. Validator pipeline (Validator<T>) executa cada `IValidationRule<T>` e acumula erros (ValidationResult).
+4. Se válido, será criado o Value Object `Password` através de Password.Create(...).
+5. Se inválido, endpoint retorna 400 com ValidatePasswordResponse contendo lista de `Error`.
+6. Exceções tratadas por GlobalExceptionMiddleware -> ProblemDetails (RFC 7807).
+
+---
+
+## API — Endpoints, versões e exemplos
+
+Versionamento
+- Header: `api-version: 1.0` ou `api-version: 2.0`;
+- Default: 2.0 (Program.cs — AssumeDefaultVersionWhenUnspecified = true).
+
+Endpoints principais
+- POST /api/validate-password
+  - Request: { "password": "Senha123!" }
+  - Responses:
+    - 200 OK — senha válida (ValidatePasswordResponse)
+    - 400 Bad Request — invalidação com lista de erros
+    - 500 Internal Server Error — ProblemDetails (RFC 7807)
+- GET /api/hc — health check (liveness/readiness)
+- GET /api/throw-exception — endpoint demo que força erro
+
+Exemplo cURL v1.0 (sucesso)
+```bash
+curl -X POST "https://localhost:7218/api/validate-password" \
+  -H "Content-Type: application/json" \
+  -H "api-version: 1.0" \
+  -d '{ "password": "Senha123!" }'
+```
+Exemplo v1.0 — response 200:
+```json
+{
+  "apiVersion": "1",
+  "data": "A senha informada é válida",
+  "errors": []
 }
-Rel(User, API, "Chama endpoints de validação")
-Rel(API, SPV, "Envia senha e solicita validação")
 ```
 
----
-
-### **C4 — Nível 2: Containers**
+Exemplo v2.0 (falha)
+```bash
+curl -X POST "https://localhost:7218/api/validate-password" \
+  -H "Content-Type: application/json" \
+  -H "api-version: 2.0" \
+  -d '{ "password": "abc" }'
 ```
-Container_Boundary("API") {
-    Container("Minimal API", "ASP.NET 9", "Responsável por expor endpoints REST")
+Exemplo v2.0 — response 400:
+```json
+{
+  "apiVersion": "2",
+  "data": "A senha informada é inválida, pois não atende aos critérios",
+  "errors": [
+    { "code": 1, "message": "A senha deve ter pelo menos 9 caracteres" },
+    { "code": 2, "message": "Não são permitidos caracteres repetidos consecutivos" },
+    { "code": 3, "message": "Espaços em branco não são permitidos" }
+  ]
 }
+```
 
-Container_Boundary("Core") {
-    Container("Rules Engine", "C#", "Executa as regras de validação")
-    Container("Ruleset V1", "C#", "Regras básicas")
-    Container("Ruleset V2", "C#", "Regras avançadas + CoR")
-    Container("Shared Kernel", ".NET", "Erros, resultados, abstrações")
+Health check (GET)
+```bash
+curl -X GET "https://localhost:7218/api/hc" -H "api-version: 2.0"
+```
+Response:
+```json
+{ "liveness": true, "readiness": true, "errors": [] }
+```
+
+Erro gerado (GET /api/throw-exception)
+```bash
+curl -X GET "https://localhost:7218/api/throw-exception" -H "api-version: 1.0"
+```
+Response 500 — ProblemDetails (RFC 7807)
+
+---
+
+## Regras de validação e Value Object Password
+
+Regras (exemplos)
+- MinLengthRule (mínimo de caracteres)
+- MustContainUppercaseRule
+- MustContainLowercaseRule
+- MustContainDigitRule
+- MustContainSpecialCharRule
+- WhitespaceNotAllowedRule
+- NoRepeatedCharsRule
+- NullNotAllowedRule
+
+Value Object — Password
+- Imutável (record), equality by value;
+- Factory method `Password.Create(password, IPasswordValidator)` valida antes de criar;
+- Retorna `Result<Password>` com sucesso ou lista de erros (ValidationResult).
+
+Exemplo de uso (pseudocódigo)
+```csharp
+var result = Password.Create("Senha123!", passwordValidator);
+if (result.IsSuccess) {
+    var password = result.Value;
+} else {
+    // errors => result.Errors
 }
 ```
 
----
-
-### **C4 — Nível 3: Componentes**
-```
-Component("Password", "Value Object", "Imutável")
-Component("IPasswordValidator", "Interface", "Define contrato de validação")
-Component("RulesetPasswordValidatorV2", "Concrete", "Executa regras com Chain of Responsibility")
-Component("Validator<T>", "Engine", "Processa regras individuais")
-Component("IValidationRule", "Rule Interface", "Define regras de validação")
-Component("Result<T>", "DTO", "Retorno seguro e tipado")
-Component("ValidationResult", "DTO", "Lista de erros de validação")
-```
+Motivação para VO
+- Impõe invariantes do domínio;
+- Evita leaky abstractions e uso indevido de strings;
+- Facilita raciocínio, testes e migração para persistência (se necessário).
 
 ---
 
-## 🏛️ Diagrama de Fluxo da Validação
-```mermaid
-flowchart TD
-    A[String password] --> B[IPasswordValidator.Validate]
-    B --> C{É válida?}
-    C -- Não --> D[Result.Failure]
-    C -- Sim --> E[Cria Password VO]
-    E --> F[Result.Success]
-```
+## Testes — estratégia e cobertura
 
----
+Tipos de testes
+- Unitários (Domain & Application).
+- Integration/E2E (Endpoints com WebApplicationFactory).
+- Mocks com Moq para dependências.
 
-## 🧱 Diagrama Chain of Responsibility
-```mermaid
-flowchart TD
+Cobertura de testes (exemplos)
+- Domain/Rules/* — testes por regra;
+- Domain/Validators/* — tests para RulesetPasswordValidatorV1/V2;
+- Application/UseCases/UseCasePasswordValidateTests — testes de orquestração e Strategy selection;
+- Endpoints/* — ValidatePasswordEndpointV1Tests, ValidatePasswordEndpointV2Tests (WebApplicationFactory).
 
-    Start["Senha"] --> Rule1["MinLengthRule"]
-    Rule1 -->|OK| Rule2["SpecialCharRule"]
-    Rule1 -->|Erro + Continue| Rule2
-    Rule1 -->|Erro + Stop| End
-
-    Rule2 -->|OK| Rule3["UppercaseRule"]
-    Rule2 -->|Erro + Continue| Rule3
-    Rule2 -->|Erro + Stop| End
-
-    Rule3 -->|OK| End[Resultado Final]
-    Rule3 -->|Erro| End
+Execução
+```bash
+dotnet test
 ```
 
----
-
-## 📦 Estrutura de Pastas Recomendada
-```
-/src
- ├── Domain
- │    ├── Validators
- │    │     ├── Interfaces
- │    │     ├── RulesetPasswordValidatorV1.cs
- │    │     └── RulesetPasswordValidatorV2.cs
- │    ├── ValueObject
- │    │     └── Password.cs
- │
- ├── Shared
- │    ├── Validator.cs
- │    ├── Error.cs
- │    ├── Result.cs
- │    └── ValidationResult.cs
- │
- └── Application
-      └── PasswordService.cs
-```
+Regras de ouro para testes
+- Cada regra é testada isoladamente (AAA);
+- Value Object garante invariantes e testabilidade sem DI;
+- UseCase é testado com mocks (estratégia e diálogos com validators);
+- Implementar testes de integração para garantir contratos (Swagger/DTOs).
 
 ---
 
-## 🔄 Diferenciais entre V1 e V2
-| Característica | V1 | V2 |
-|----------------|-----|------|
-| Padrão | Strategy + Lista de regras | Strategy + Chain of Responsibility |
-| Continuação após erro | ❌ Não | ✔️ Sim |
-| Extensibilidade | Média | Alta |
-| Configurável via JSON/YAML | Limitado | Total |
-| Multi-clientes | Pouco flexível | Altamente adaptável |
+## Observabilidade, segurança e performance
+
+Observability
+- Logging estruturado (ILogger);
+- Health-check endpoint;
+- Tracing/telemetry sugerido (OpenTelemetry + Prometheus).
+
+Segurança
+- Não logar ou retornar a senha em responses/logs;
+- HTTPS obrigatório em produção;
+- Sugestão: rate-limiting e WAF em gateway;
+- Validar tamanho máximo de payload para evitar abuso.
+
+Performance
+- Minimal APIs oferecem menor overhead;
+- Regras puras são determinísticas e fáceis de paralelizar se necessário;
+- Arquitetura stateless facilita scale horizontal.
 
 ---
 
-## 🧪 Testes
-- Totalmente testável por unidade
-- Rules independentes permitem mocks simples
-- Result<T> evita exceções desnecessárias
+## Como estender (regras e versões)
+
+Adicionar regra
+1. Implementar `IValidationRule<T>` com ValidationResult;
+2. Incluir mensagem e código único de erro;
+3. Adicionar rule no Ruleset (RulesetPasswordValidatorV1/V2 ou V3);
+4. Registrar na DI (RegisterModule) se necessário;
+5. Adicionar testes unitários e atualizar integração/Swagger.
+
+Adicionar nova versão do validator (v3+)
+1. Criar `PasswordValidatorV3` e `RulesetPasswordValidatorV3` com regras necessárias;
+2. Registrar a strategy no `RegisterModule`;
+3. Atualizar RegisterRoutes/Swagger (caso deseje visibilidade separada);
+4. Garantir testes unitários e integrados para regressão.
+
+Manter o YAGNI
+- Implementar apenas o que for necessário; preferir extensões com testes e documentação.
 
 ---
 
-## 🔧 Tecnologias
-- .NET 9
-- C#
-- Minimal API
-- DDD
-- Clean Architecture (light)
-- Mermaid + C4
+## CI/CD, PR e checklist de qualidade
+
+Pipeline sugerido:
+- Dotnet build;
+- Dotnet test (unitários e integração);
+- Medir cobertura (coverlet/sonarqube);
+- Lint e static analysis (Roslynator/Analyzers);
+- Build image Docker e publicar (opcional).
+
+Checklist de PR
+- Build verde;
+- Testes unitários e de integração passaram;
+- Coverage >= meta;
+- Descrição clara e rationale (breaking changes);
+- Atualizar README/Swagger se for alteração de contrato.
 
 ---
 
-## 📄 Licença
-MIT — livre para usar e modificar.
+## Arquivos e referências principais
+
+- Program.cs — configuração geral de DI, API Versioning, Swagger e middlewares.
+- Application/Configuration/RegisterModule.cs — composição e DI.
+- Application/Configuration/RegisterRoutes.cs — endpoints e versionamento.
+- Application/Configuration/RegisterMiddlewares.cs — pipeline de middlewares.
+- Application/Middlewares/GlobalExceptionMiddleware.cs — RFC 7807.
+- Application/UseCases/UseCasePasswordValidate.cs — estratégia de seleção.
+- Application/Validators/Password/* — PasswordValidatorV1/PasswordValidatorV2.
+- Domain/Validators/RulesetPasswordValidatorV1.cs / V2.cs — regras por versão.
+- Domain/ValueObjects/Password.cs — Value Object.
+- Shared/Abstractions/Validator.cs — Validator<T> pipeline.
+- Shared/Result.cs, Shared/ValidationResult.cs, Shared/Error.cs — modelos de resposta.
+- Http/* — exemplos de requisições (ValidatePassword.http, HealthCheck.http, ThrowException.http).
 
 ---
 
-## ✨ Autor
-Documentação gerada automaticamente via ChatGPT.  
-Se quiser um **README.md ainda mais completo**, posso gerar badges por CI, exemplos de requests, diagramas de sequência e muito mais.
+## Contribuição
+
+Como contribuir
+1. Fork → nova branch com feature/bugfix → PR;
+2. Adicione testes unitários / integração;
+3. Atualize documentação e Swagger (se necessário);
+4. Siga checklist de qualidade.
+
+Sugestões de melhoria
+- Suportar regras configuráveis via JSON/YAML;
+- Adicionar telemetria (OpenTelemetry) e dashboards;
+- Adicionar rate-limiting e proteção via gateway.
+
+---
+
+## Notas finais
+
+- O projeto prioriza qualidade e extensibilidade: regras isoladas, Value Objects e patterns que preservam invariantes e permitem extensão segura.
+- Caso queira que eu gere: CONTRIBUTING.md, CHANGELOG.md, dependabot.yml ou GitHub Actions para CI, informe qual deseja primeiro.
+
+_Documentação consolidada para ValidadorSenhaSegura © 2025_
+_Autor: Marcos Galhardi_

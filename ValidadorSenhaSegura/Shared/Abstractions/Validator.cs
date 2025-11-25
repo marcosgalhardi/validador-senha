@@ -1,6 +1,6 @@
 ﻿using ValidadorSenhaSegura.Shared.Interfaces;
 
-namespace ValidadorSenhaSegura.Shared
+namespace ValidadorSenhaSegura.Shared.Abstractions
 {
     public class Validator<T>
     {

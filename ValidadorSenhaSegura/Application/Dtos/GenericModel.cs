@@ -1,6 +1,6 @@
 ﻿using ValidadorSenhaSegura.Shared;
 
-namespace ValidadorSenhaSegura.Application.Dto
+namespace ValidadorSenhaSegura.Application.Dtos
 {
     public record GenericModel<TOut> : GenericModel
     {

@@ -1,8 +1,8 @@
-﻿using ValidadorSenhaSegura.Application.Models.Response;
+﻿using ValidadorSenhaSegura.Application.Dtos.Response;
 using ValidadorSenhaSegura.Application.UseCases.Interfaces;
 using ValidadorSenhaSegura.Domain.Enums;
 using ValidadorSenhaSegura.Domain.Validators.Interfaces;
-using ValidadorSenhaSegura.Domain.ValueObject;
+using ValidadorSenhaSegura.Domain.ValueObjects;
 
 namespace ValidadorSenhaSegura.Application.UseCases
 {
@@ -28,11 +28,11 @@ namespace ValidadorSenhaSegura.Application.UseCases
             return this;
         }
 
-        public PasswordValidateResponse Execute(string password)
+        public ValidatePasswordResponse Execute(string password)
         {
             var resultPassword = Password.Create(password, _passwordValidator);
 
-            var viewModel = new PasswordValidateResponse
+            var viewModel = new ValidatePasswordResponse
             {
                 ApiVersion = ((int)_apiVersion).ToString(),
 

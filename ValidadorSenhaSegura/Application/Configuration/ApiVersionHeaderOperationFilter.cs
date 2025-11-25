@@ -1,7 +1,7 @@
 ﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace ValidadorSenhaSegura.Application
+namespace ValidadorSenhaSegura.Application.Configuration
 {
     public class ApiVersionHeaderOperationFilter : IOperationFilter
     {

@@ -2,6 +2,7 @@
 using ValidadorSenhaSegura.Domain.Rules;
 using ValidadorSenhaSegura.Domain.Validators.Interfaces;
 using ValidadorSenhaSegura.Shared;
+using ValidadorSenhaSegura.Shared.Abstractions;
 
 namespace ValidadorSenhaSegura.Domain.Validators.Password
 {

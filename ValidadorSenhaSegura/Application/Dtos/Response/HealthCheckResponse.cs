@@ -1,6 +1,4 @@
-﻿using ValidadorSenhaSegura.Application.Dto;
-
-namespace ValidadorSenhaSegura.Application.Models.Response
+﻿namespace ValidadorSenhaSegura.Application.Dtos.Response
 {
     public record HealthCheckResponse : GenericModel
     {

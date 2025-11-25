@@ -1,7 +1,7 @@
 ﻿using ValidadorSenhaSegura.Domain.Validators.Interfaces;
 using ValidadorSenhaSegura.Shared;
 
-namespace ValidadorSenhaSegura.Domain.ValueObject
+namespace ValidadorSenhaSegura.Domain.ValueObjects
 {
     public record Password
     {

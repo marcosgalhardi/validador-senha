@@ -1,7 +1,7 @@
 ﻿using ValidadorSenhaSegura.Application.Validators.Password;
 using ValidadorSenhaSegura.Domain.Validators;
 using ValidadorSenhaSegura.Domain.Validators.Password;
-using ValidadorSenhaSegura.Domain.ValueObject;
+using ValidadorSenhaSegura.Domain.ValueObjects;
 
 public class PasswordTests
 {

@@ -1,6 +1,5 @@
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
-using ValidadorSenhaSegura.Application;
 using ValidadorSenhaSegura.Application.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
