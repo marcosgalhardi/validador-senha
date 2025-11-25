@@ -61,6 +61,14 @@ Projetada com separação de responsabilidades, versionamento por cabeçalho e s
 
 Abaixo são listados os testes existentes no repositório divididos entre testes unitários e testes integrados.
 
+## Middlewares
+
+Abaixo uma tabela explicando o middleware global da aplicação e como ele é utilizado.
+
+| Middleware | Arquivo | Registrado em | Objetivo | Comportamento | Resposta HTTP | Logs / Observações |
+|---|---:|---|---|---|---:|---|
+| GlobalExceptionMiddleware | ValidadorSenhaSegura.Application.Middlewares.GlobalExceptionMiddleware.cs | Chamado em Program.cs via _app.UseGlobalExceptionHandler()_ (extensão em Application.Configuration.RegisterMiddlewares) | Capturar exceções não tratadas no pipeline e retornar uma resposta padronizada ao cliente | Envolve a chamada ao próximo middleware/endpoint com try/catch. Ao capturar uma Exception: grava um erro via ILogger e chama HandleExceptionAsync para serializar a resposta | Status 500 com Content-Type `application/problem+json`. Corpo: `ProblemDetails` com Title = "Erro interno no servidor", Detail = mensagem da exceção, Status = 500, Instance = caminho da requisição | Logs de erro são escritos pelo ILogger<GlobalExceptionMiddleware>. Útil para testes locais com a rota de exemplo `/api/throw-exception` que lança uma exceção propositalmente |
+
 ### Testes unitários
 
 | Test class | Path | Objetivo |
@@ -98,6 +106,7 @@ Observações:
   - GET  /api/hc
   - GET  /api/throw-exception (exemplo de erro interno)
 
+  
 1) Validar senha — requisição (exemplo curl, versão 1.0)
 curl:
 curl -X POST "https://localhost:7218/api/validate-password" \
@@ -127,6 +136,7 @@ Resposta de falha (HTTP 400) — exemplo quando não atende às regras
   ]
 }
 
+
 2) Validar senha — usando versão 2.0 (pode ter regras diferentes conforme implementação)
 curl:
 curl -X POST "https://localhost:7218/api/validate-password" \
@@ -144,6 +154,7 @@ Exemplo de resposta (HTTP 400)
     { "code": 3, "message": "Espaços em branco não são permitidos" }
   ]
 }
+
 
 3) Health check (GET /api/hc)
 curl:
@@ -167,10 +178,3 @@ Resposta de erro (HTTP 500, content-type: application/problem+json)
   "status": 500,
   "instance": "/api/throw-exception"
 }
-
-Notas finais rápidas:
-- Os campos retornados seguem os records:
-  - PasswordValidateResponse: { apiVersion, data, errors[] }
-  - HealthCheckResponse: { liveness, readiness, errors[] }
-  - Error: { code, message }
-- Ajuste os exemplos conforme regras específicas que seu ruleset retorna (códigos de erro do enum RulesetValidationErrorCode estão disponíveis no código).

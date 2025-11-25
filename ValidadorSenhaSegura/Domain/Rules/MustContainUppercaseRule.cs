@@ -9,7 +9,7 @@ namespace ValidadorSenhaSegura.Domain.Rules
 
         public RulesValidationErrorCode ErrorCode => RulesValidationErrorCode.MustContainUppercaseRuleValidation;
 
-        public bool ContinueIfErrorOccurs => false;
+        public bool ContinueIfErrorOccurs => true;
         public bool IsValid(string input) => input.Any(char.IsUpper);
     }
 }

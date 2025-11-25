@@ -15,7 +15,7 @@ namespace ValidadorSenhaSegura.Domain.Rules
         public string ErrorMessage => $"Deve ter no mínimo {_min} caracteres.";
         public RulesValidationErrorCode ErrorCode => RulesValidationErrorCode.MinLengthRuleValidation;
 
-        public bool ContinueIfErrorOccurs => false;
+        public bool ContinueIfErrorOccurs => true;
 
 
         public bool IsValid(string input) => input?.Length >= _min;
