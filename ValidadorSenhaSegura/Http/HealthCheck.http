@@ -1,0 +1,25 @@
+@ValidadorSenhaSegura_HostAddress = https://localhost:7218
+
+### Chamada sem passar a api-version
+GET {{ValidadorSenhaSegura_HostAddress}}/api/hc
+Accept: application/json
+# retorna sempre a padrão que no caso é a 
+# api-version 2.0
+
+### Chamada passando a api-version 1.0 no header.
+GET {{ValidadorSenhaSegura_HostAddress}}/api/hc
+Accept: application/json
+api-version: 1.0
+### api-version 1.0
+
+### Chamada passando a api-version 2.0 no header.
+GET {{ValidadorSenhaSegura_HostAddress}}/api/hc
+Accept: application/json
+api-version: 2.0
+### api-version 2.0
+
+
+# Pensando no escopo do banco onde utilizamos o apigateway na frente da api, 
+# o uso de api-version via header acaba fazendo sentido, já que a configuração 
+# do roteamento fica a cargo de configuração do api gateway, 
+# podendo facilmente fazer esse chaveamento.
