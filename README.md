@@ -274,7 +274,7 @@ Regras de ouro para testes
 
 ---
 
-## Observabilidade, segurança e performance
+## Observabilidade, segurança e performance (boas práticas)
 
 Observability
 - Logging estruturado (ILogger);
@@ -314,7 +314,7 @@ Manter o YAGNI
 
 ---
 
-## CI/CD, PR e checklist de qualidade
+## CI/CD, PR e checklist de qualidade (sugestão)
 
 Pipeline sugerido:
 - Dotnet build;
@@ -351,12 +351,6 @@ Checklist de PR
 
 ## Contribuição
 
-Como contribuir
-1. Fork → nova branch com feature/bugfix → PR;
-2. Adicione testes unitários / integração;
-3. Atualize documentação e Swagger (se necessário);
-4. Siga checklist de qualidade.
-
 Sugestões de melhoria
 - Suportar regras configuráveis via JSON/YAML;
 - Adicionar telemetria (OpenTelemetry) e dashboards;
@@ -367,7 +361,6 @@ Sugestões de melhoria
 ## Notas finais
 
 - O projeto prioriza qualidade e extensibilidade: regras isoladas, Value Objects e patterns que preservam invariantes e permitem extensão segura.
-- Caso queira que eu gere: CONTRIBUTING.md, CHANGELOG.md, dependabot.yml ou GitHub Actions para CI, informe qual deseja primeiro.
 
 _Documentação consolidada para ValidadorSenhaSegura © 2025_
 _Autor: Marcos Galhardi_

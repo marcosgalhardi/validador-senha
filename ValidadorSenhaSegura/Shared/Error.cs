@@ -2,7 +2,7 @@
 
 namespace ValidadorSenhaSegura.Shared
 {
-    public sealed class Error
+    public sealed record Error
     {
         public int Code { get; set; } = -1;
         public required string Message { get; set; }
