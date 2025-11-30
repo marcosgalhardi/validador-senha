@@ -1,4 +1,4 @@
-﻿using ValidadorSenhaSegura.Application.Dtos.Response;
+using ValidadorSenhaSegura.Application.Dtos.Response;
 using ValidadorSenhaSegura.Application.UseCases.Interfaces;
 using ValidadorSenhaSegura.Domain.Enums;
 using ValidadorSenhaSegura.Domain.Validators.Interfaces;
@@ -30,7 +30,10 @@ namespace ValidadorSenhaSegura.Application.UseCases
 
         public ValidatePasswordResponse Execute(string password)
         {
-            var resultPassword = Password.Create(password, _passwordValidator);
+            // ✅ MELHORIA: Remoção de espaços em branco conforme requisito
+            var cleanPassword = password.Replace(" ", string.Empty);
+
+            var resultPassword = Password.Create(cleanPassword, _passwordValidator);
 
             var viewModel = new ValidatePasswordResponse
             {
